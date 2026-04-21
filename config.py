@@ -43,8 +43,23 @@ AI_PRODUCT_KEYWORDS = [
     "AIエージェント", "AIアシスタント",
 ]
 
+# カスタマーAI動向用: 調査レポート・利用実態系キーワード
+AI_CONSUMER_KEYWORDS = [
+    # 調査・レポート系
+    "調査", "レポート", "白書", "実態調査", "意識調査", "アンケート",
+    "調査結果", "調査レポート", "利用動向調査",
+    # AI利用・動向
+    "AI利用", "AI活用", "AI動向", "AI普及", "AI浸透",
+    "利用率", "利用動向", "利用実態", "利用意向",
+    "生成AI利用", "生成AI活用", "ChatGPT利用",
+    # ユーザー・消費者
+    "消費者", "ユーザー", "生活者", "個人利用",
+    # トレンド
+    "AI adoption", "AI survey", "AI usage", "AI trend",
+]
+
 RSS_FEEDS = [
-    # ─── 海外AIニュース ─────────────────────────────────────────
+    # ─── 海外AIニュース ─────────────────────────────────────────────────
     {
         "name": "TechCrunch AI",
         "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
@@ -69,7 +84,7 @@ RSS_FEEDS = [
         "category": "海外AI",
         "keywords": AI_PRODUCT_KEYWORDS,
     },
-    # ─── 国内AIニュース ─────────────────────────────────────────
+    # ─── 国内AIニュース ─────────────────────────────────────────────────
     {
         "name": "ITmedia AI+",
         "url": "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml",
@@ -94,7 +109,7 @@ RSS_FEEDS = [
         "category": "国内AI",
         "keywords": AI_PRODUCT_KEYWORDS,
     },
-    # ─── Horizontal AI（ラボ / プラットフォーム） ────────────────
+    # ─── Horizontal AI（ラボ / プラットフォーム） ──────────────────────
     {
         "name": "OpenAI Blog",
         "url": "https://openai.com/blog/rss/",
@@ -110,7 +125,7 @@ RSS_FEEDS = [
         "url": "https://deepmind.google/blog/rss.xml",
         "category": "Horizontal AI",
     },
-    # ─── 競合動向：飲食 ──────────────────────────────────────
+    # ─── 競合動向：飲食 ────────────────────────────────────────────────
     {
         "name": "カカクコム (食べログ)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=1455",
@@ -141,7 +156,7 @@ RSS_FEEDS = [
         "category": "競合：飲食",
         "keywords": AI_SERVICE_KEYWORDS,
     },
-    # ─── 競合動向：住まい ────────────────────────────────────
+    # ─── 競合動向：住まい ──────────────────────────────────────────────
     {
         "name": "LIFULL (HOME'S)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=33058",
@@ -166,7 +181,7 @@ RSS_FEEDS = [
         "category": "競合：住まい",
         "keywords": AI_SERVICE_KEYWORDS,
     },
-    # ─── 競合動向：美容 ──────────────────────────────────────
+    # ─── 競合動向：美容 ────────────────────────────────────────────────
     {
         "name": "MIXI (minimo)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=25121",
@@ -179,14 +194,14 @@ RSS_FEEDS = [
         "category": "競合：美容",
         "keywords": AI_SERVICE_KEYWORDS,
     },
-    # ─── 競合動向：自動車 ────────────────────────────────────
+    # ─── 競合動向：自動車 ──────────────────────────────────────────────
     {
         "name": "プロトコーポレーション (goo-net)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=17791",
         "category": "競合：自動車",
         "keywords": AI_SERVICE_KEYWORDS,
     },
-    # ─── 競合動向：旅行 ──────────────────────────────────────
+    # ─── 競合動向：旅行 ────────────────────────────────────────────────
     {
         "name": "楽天グループ (楽天トラベル)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=5889",
@@ -211,5 +226,47 @@ RSS_FEEDS = [
         "category": "競合：旅行",
         "keywords": AI_SERVICE_KEYWORDS,
     },
+    # ─── カスタマーAI動向（調査・レポート） ────────────────────────────
+    {
+        "name": "MM総研",
+        "url": "https://prtimes.jp/companyrdf.php?company_id=6717",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "ICT総研",
+        "url": "https://prtimes.jp/companyrdf.php?company_id=19182",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "電通総研",
+        "url": "https://prtimes.jp/companyrdf.php?company_id=43138",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "デロイト トーマツ",
+        "url": "https://prtimes.jp/companyrdf.php?company_id=202",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "PwC Japan",
+        "url": "https://prtimes.jp/companyrdf.php?company_id=29907",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "マッキンゼー",
+        "url": "https://prtimes.jp/companyrdf.php?company_id=94688",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "日経クロステック",
+        "url": "https://xtech.nikkei.com/rss/xtech-it.rdf",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
 ]
-
