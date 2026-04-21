@@ -304,4 +304,4 @@ RSS_FEEDS = [
         "category": "カスタマーAI動向",
         "keywords": AI_CONSUMER_KEYWORDS,
     },
-]\n
+]
