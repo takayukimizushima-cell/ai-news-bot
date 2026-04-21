@@ -103,7 +103,7 @@ def build_slack_blocks(articles: list[dict]) -> dict:
             },
         },
         {"type": "divider"},
-    ]
+            ]
 
     # カテゴリごとにグルーピング
     by_category: dict[str, list[dict]] = {}
@@ -113,11 +113,12 @@ def build_slack_blocks(articles: list[dict]) -> dict:
     category_emojis = {
         "海外AI": "🌏",
         "国内AI": "🇯🇵",
-        "AIリサーチ": "🔬",
+        "Horizontal AI": "🧪",
         "競合：飲食": "🍽️",
         "競合：住まい": "🏠",
         "競合：美容": "💇",
         "競合：自動車": "🚗",
+        "競合：旅行": "✈️",
     }
 
     for category, items in by_category.items():
