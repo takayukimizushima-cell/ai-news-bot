@@ -56,6 +56,10 @@ AI_CONSUMER_KEYWORDS = [
     "消費者", "ユーザー", "生活者", "個人利用",
     # トレンド
     "AI adoption", "AI survey", "AI usage", "AI trend",
+    # 海外レポート用キーワード
+    "report", "survey", "research", "study", "forecast",
+    "consumer", "adoption", "workforce", "enterprise",
+    "generative AI", "gen AI", "AI index",
 ]
 
 RSS_FEEDS = [
@@ -269,4 +273,35 @@ RSS_FEEDS = [
         "category": "カスタマーAI動向",
         "keywords": AI_CONSUMER_KEYWORDS,
     },
-]
+    # ─── カスタマーAI動向：海外（調査・レポート） ──────────────────────
+    {
+        "name": "McKinsey Insights",
+        "url": "https://www.mckinsey.com/insights/rss",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "Gartner Newsroom",
+        "url": "https://www.gartner.com/en/newsroom/rss",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "Forrester Blog",
+        "url": "https://www.forrester.com/blogs/feed/",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "Pew Research (Internet & Tech)",
+        "url": "https://www.pewresearch.org/topic/internet-technology/feed/",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+    {
+        "name": "Stanford HAI",
+        "url": "https://hai.stanford.edu/news/rss.xml",
+        "category": "カスタマーAI動向",
+        "keywords": AI_CONSUMER_KEYWORDS,
+    },
+]\n
