@@ -1,6 +1,6 @@
 """
-AI News RSS Collector â Slack Poster
-æ¯æ GitHub Actions ããå®è¡ããéå»24æéä»¥åã®è¨äºã Slack ã«æç¨¿ããã
+AI News RSS Collector → Slack Poster
+毎朝 GitHub Actions から実行し、過去24時間以内の記事を Slack に投稿する。
 """
 
 import os
@@ -15,7 +15,7 @@ import requests
 
 from config import RSS_FEEDS
 
-# ââ è¨­å® ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── 設定 ────────────────────────────────────────────────────────────────
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 HOURS_LOOKBACK = int(os.environ.get("HOURS_LOOKBACK", "24"))
 MAX_ARTICLES_PER_FEED = int(os.environ.get("MAX_ARTICLES_PER_FEED", "5"))
@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 JST = timezone(timedelta(hours=9))
 
 
-# ââ RSS åå¾ ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── RSS 取得 ────────────────────────────────────────────────────────────
 def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
-    """æå®ãã£ã¼ããã cutoff ä»¥éã®è¨äºãåå¾ããã"""
+    """指定フィードから cutoff 以降の記事を取得する。"""
     url = feed["url"]
     name = feed["name"]
     logger.info(f"Fetching: {name} ({url})")
@@ -39,18 +39,18 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
     try:
         d = feedparser.parse(url)
     except Exception as e:
-        logger.warning(f"  â  ãã¼ã¹å¤±æ: {name} - {e}")
+        logger.warning(f"  ⚠ パース失敗: {name} - {e}")
         return []
 
     if d.bozo and not d.entries:
-        logger.warning(f"  â  ãã£ã¼ãåå¾ã¨ã©ã¼: {name}")
+        logger.warning(f"  ⚠ フィード取得エラー: {name}")
         return []
 
     articles = []
     keywords = feed.get("keywords", [])
 
-    for entry in d.entries[:20]:  # ææ°20ä»¶ããã§ãã¯
-        # å¬éæ¥æã®åå¾
+    for entry in d.entries[:20]:  # 最新20件をチェック
+        # 公開日時の取得
         published = None
         for attr in ("published_parsed", "updated_parsed"):
             if hasattr(entry, attr) and getattr(entry, attr):
@@ -59,17 +59,17 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
                 )
                 break
 
-        # æ¥æãåå¾ã§ããªãå ´åã¯ã¹ã­ãã
+        # 日時が取得できない場合はスキップ
         if published is None:
             continue
 
-        # éå» N æéä»¥åã®è¨äºã®ã¿
+        # 過去 N 時間以内の記事のみ
         if published < cutoff:
             continue
 
-        title = entry.get("title", "(ã¿ã¤ãã«ãªã)")
+        title = entry.get("title", "(タイトルなし)")
 
-        # ã­ã¼ã¯ã¼ããã£ã«ã¿: æå®ãããå ´åãã¿ã¤ãã«ã«å«ã¾ãããã®ã®ã¿
+        # キーワードフィルタ: 指定がある場合、タイトルに含まれるもののみ
         if keywords and not any(kw.lower() in title.lower() for kw in keywords):
             continue
 
@@ -84,47 +84,47 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
         )
 
     articles = articles[:MAX_ARTICLES_PER_FEED]
-    logger.info(f"  â {len(articles)} ä»¶ã®æ°çè¨äº")
+    logger.info(f"  → {len(articles)} 件の新着記事")
     return articles
 
 
-# ââ Slack ã¡ãã»ã¼ã¸çµã¿ç«ã¦ âââââââââââââââââââââââââââââââââââââââââââââ
+# ── Slack メッセージ組み立て ─────────────────────────────────────────────
 def build_slack_blocks(articles: list[dict]) -> dict:
-    """Slack Block Kit å½¢å¼ã®ã¡ãã»ã¼ã¸ãçµã¿ç«ã¦ãã"""
-    now_jst = datetime.now(JST).strftime("%Yå¹´%mæ%dæ¥ %H:%M")
+    """Slack Block Kit 形式のメッセージを組み立てる。"""
+    now_jst = datetime.now(JST).strftime("%Y年%m月%d日 %H:%M")
 
     blocks = [
         {
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": f"ð° AI News Digest ({now_jst})",
+                "text": f"📰 AI News Digest ({now_jst})",
                 "emoji": True,
             },
         },
         {"type": "divider"},
     ]
 
-    # ã«ãã´ãªãã¨ã«ã°ã«ã¼ãã³ã°
+    # カテゴリごとにグルーピング
     by_category: dict[str, list[dict]] = {}
     for a in articles:
         by_category.setdefault(a["category"], []).append(a)
 
     category_emojis = {
-        "æµ·å¤AI": "ð",
-        "å½åAI": "ð¯ðµ",
-        "Horizontal AI": "ð§ª",
-        "ç«¶åï¼é£²é£": "ð½ï¸",
-        "ç«¶åï¼ä½ã¾ã": "ð ",
-        "ç«¶åï¼ç¾å®¹": "ð",
-        "ç«¶åï¼èªåè»": "ð",
-        "ç«¶åï¼æè¡": "âï¸",
-        "ã«ã¹ã¿ãã¼AIåå": "ð",
-        "AIæè³ã»ãã¼ã±ãã": "ð°",
+        "海外AI": "🌏",
+        "国内AI": "🇯🇵",
+        "Horizontal AI": "🧪",
+        "競合：飲食": "🍽️",
+        "競合：住まい": "🏠",
+        "競合：美容": "💇",
+        "競合：自動車": "🚗",
+        "競合：旅行": "✈️",
+        "カスタマーAI動向": "📊",
+        "AI投資・マーケット": "💰",
     }
 
     for category, items in by_category.items():
-        emoji = category_emojis.get(category, "ð")
+        emoji = category_emojis.get(category, "📌")
         blocks.append(
             {
                 "type": "section",
@@ -143,7 +143,7 @@ def build_slack_blocks(articles: list[dict]) -> dict:
                         "type": "mrkdwn",
                         "text": (
                             f"<{item['link']}|{item['title']}>\n"
-                            f"_{item['source']}_ ã» {item['published']}"
+                            f"_{item['source']}_ ・ {item['published']}"
                         ),
                     },
                 }
@@ -153,33 +153,33 @@ def build_slack_blocks(articles: list[dict]) -> dict:
 
     return {
         "blocks": blocks,
-        "text": f"AI News Digest - {len(articles)} ä»¶ã®æ°çè¨äº",  # fallback
+        "text": f"AI News Digest - {len(articles)} 件の新着記事",  # fallback
     }
 
 
 def build_no_news_message() -> dict:
-    """æ°çè¨äºãç¡ãå ´åã®ã¡ãã»ã¼ã¸ã"""
-    now_jst = datetime.now(JST).strftime("%Yå¹´%mæ%dæ¥ %H:%M")
+    """新着記事が無い場合のメッセージ。"""
+    now_jst = datetime.now(JST).strftime("%Y年%m月%d日 %H:%M")
     return {
         "blocks": [
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"ð° *AI News Digest* ({now_jst})\n\néå» {HOURS_LOOKBACK} æéä»¥åã®æ°çè¨äºã¯ããã¾ããã§ããã",
+                    "text": f"📰 *AI News Digest* ({now_jst})\n\n過去 {HOURS_LOOKBACK} 時間以内の新着記事はありませんでした。",
                 },
             }
         ],
-        "text": "AI News Digest - æ°çè¨äºãªã",
+        "text": "AI News Digest - 新着記事なし",
     }
 
 
-# ââ Slack éä¿¡ ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Slack 送信 ──────────────────────────────────────────────────────────
 def post_to_slack(payload: dict) -> None:
-    """Incoming Webhook ã§ Slack ã«æç¨¿ããã"""
+    """Incoming Webhook で Slack に投稿する。"""
     if not SLACK_WEBHOOK_URL:
-        logger.error("SLACK_WEBHOOK_URL ãè¨­å®ããã¦ãã¾ããã")
-        # ãããã°ç¨: stdout ã«åºå
+        logger.error("SLACK_WEBHOOK_URL が設定されていません。")
+        # デバッグ用: stdout に出力
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         sys.exit(1)
 
@@ -191,26 +191,26 @@ def post_to_slack(payload: dict) -> None:
     )
 
     if resp.status_code != 200:
-        logger.error(f"Slack éä¿¡å¤±æ: {resp.status_code} {resp.text}")
+        logger.error(f"Slack 送信失敗: {resp.status_code} {resp.text}")
         sys.exit(1)
 
-    logger.info("â Slack ã«æç¨¿ãã¾ãã")
+    logger.info("✅ Slack に投稿しました")
 
 
-# ââ ã¡ã¤ã³ ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── メイン ──────────────────────────────────────────────────────────────
 def main():
     cutoff = datetime.now(timezone.utc) - timedelta(hours=HOURS_LOOKBACK)
-    logger.info(f"å¯¾è±¡æé: {cutoff.isoformat()} ä»¥é")
+    logger.info(f"対象期間: {cutoff.isoformat()} 以降")
 
     all_articles: list[dict] = []
     for feed in RSS_FEEDS:
         articles = fetch_articles(feed, cutoff)
         all_articles.extend(articles)
 
-    logger.info(f"åè¨: {len(all_articles)} ä»¶ã®æ°çè¨äº")
+    logger.info(f"合計: {len(all_articles)} 件の新着記事")
 
     if all_articles:
-        # å¬éæ¥æã§æ°ããé ã«ã½ã¼ã
+        # 公開日時で新しい順にソート
         all_articles.sort(key=lambda a: a["published"], reverse=True)
         payload = build_slack_blocks(all_articles)
     else:
