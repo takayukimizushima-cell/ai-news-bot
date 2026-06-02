@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import logging
+import time as _time
 from datetime import datetime, timedelta, timezone
 from time import mktime
 
@@ -36,14 +37,24 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
     name = feed["name"]
     logger.info(f"Fetching: {name} ({url})")
 
-    try:
-        d = feedparser.parse(url)
-    except Exception as e:
-        logger.warning(f"  ⚠ パース失敗: {name} - {e}")
-        return []
+    max_retries = 3
+    d = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            d = feedparser.parse(url)
+            if d.bozo and not d.entries:
+                raise Exception(f"bozo error: {getattr(d, 'bozo_exception', 'unknown')}")
+            break  # 取得成功
+        except Exception as e:
+            if attempt < max_retries:
+                wait = attempt * 2  # 2秒, 4秒
+                logger.info(f"  ↻ リトライ {attempt}/{max_retries} ({wait}秒後): {name}")
+                _time.sleep(wait)
+            else:
+                logger.warning(f"  ⚠ {max_retries}回リトライ後も取得失敗: {name} - {e}")
+                return []
 
-    if d.bozo and not d.entries:
-        logger.warning(f"  ⚠ フィード取得エラー: {name}")
+    if d is None or (d.bozo and not d.entries):
         return []
 
     articles = []
