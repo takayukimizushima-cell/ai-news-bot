@@ -80,6 +80,11 @@ AI_MARKET_KEYWORDS = [
     # 日本語キーワード
     "AI戦略", "AI投資", "AI市場", "AIトレンド",
     "生成AI", "AIエージェント", "AIスタートアップ",
+    # 資本市場
+    "IPO", "earnings", "revenue", "stock", "shares",
+    "Wall Street", "Nvidia", "Microsoft", "Google", "Meta",
+    "semiconductor", "chip", "GPU", "data center",
+    "AI spending", "capex", "AI bubble", "AI hype",
 ]
 
 RSS_FEEDS = [
@@ -282,7 +287,7 @@ RSS_FEEDS = [
         "keywords": AI_CONSUMER_KEYWORDS,
     },
     {
-        "name": "マッキンザー",
+        "name": "マッキンゼー",
         "url": "https://prtimes.jp/companyrdf.php?company_id=94688",
         "category": "カスタマーAI動向",
         "keywords": AI_CONSUMER_KEYWORDS,
@@ -360,5 +365,48 @@ RSS_FEEDS = [
         "url": "https://www.bain.com/insights/rss/",
         "category": "AI投資・マーケット",
         "keywords": AI_MARKET_KEYWORDS,
+    },
+    {
+        "name": "Reuters Technology",
+        "url": "https://www.reutersagency.com/feed/?best-topics=tech",
+        "category": "AI投資・マーケット",
+        "keywords": AI_MARKET_KEYWORDS,
+    },
+    {
+        "name": "CNBC Technology",
+        "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910",
+        "category": "AI投資・マーケット",
+        "keywords": AI_MARKET_KEYWORDS,
+    },
+    {
+        "name": "Seeking Alpha",
+        "url": "https://seekingalpha.com/feed.xml",
+        "category": "AI投資・マーケット",
+        "keywords": AI_MARKET_KEYWORDS,
+    },
+    {
+        "name": "Nasdaq Newsroom",
+        "url": "https://www.nasdaq.com/feed/rssoutbound?category=Artificial+Intelligence",
+        "category": "AI投資・マーケット",
+        "keywords": AI_MARKET_KEYWORDS,
+    },
+    # ─── AIトレンドメディア ─────────────────────────────────────────────
+    {
+        "name": "MIT Technology Review",
+        "url": "https://www.technologyreview.com/feed/",
+        "category": "海外AI",
+        "keywords": AI_PRODUCT_KEYWORDS,
+    },
+    {
+        "name": "Axios",
+        "url": "https://api.axios.com/feed/",
+        "category": "海外AI",
+        "keywords": AI_PRODUCT_KEYWORDS,
+    },
+    {
+        "name": "Ars Technica",
+        "url": "https://feeds.arstechnica.com/arstechnica/technology-lab",
+        "category": "海外AI",
+        "keywords": AI_PRODUCT_KEYWORDS,
     },
 ]
