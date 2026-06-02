@@ -120,6 +120,7 @@ def build_slack_blocks(articles: list[dict]) -> dict:
         "競合：自動車": "🚗",
         "競合：旅行": "✈️",
         "カスタマーAI動向": "📊",
+        "AI投資・マーケット": "💰",
     }
 
     for category, items in by_category.items():
