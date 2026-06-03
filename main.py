@@ -37,21 +37,23 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
     name = feed["name"]
     logger.info(f"Fetching: {name} ({url})")
 
-    max_retries = 3
+    max_retries = 2
     d = None
     for attempt in range(1, max_retries + 1):
         try:
-            d = feedparser.parse(url)
+            # requestsで先に取得（タイムアウト10秒）してからfeedparserに渡す
+            resp = requests.get(url, timeout=10, headers={"User-Agent": "AI-News-Bot/1.0"})
+            resp.raise_for_status()
+            d = feedparser.parse(resp.content)
             if d.bozo and not d.entries:
                 raise Exception(f"bozo error: {getattr(d, 'bozo_exception', 'unknown')}")
             break  # 取得成功
         except Exception as e:
             if attempt < max_retries:
-                wait = attempt * 2  # 2秒, 4秒
-                logger.info(f"  ↻ リトライ {attempt}/{max_retries} ({wait}秒後): {name}")
-                _time.sleep(wait)
+                logger.info(f"  ↻ リトライ {attempt}/{max_retries} (2秒後): {name}")
+                _time.sleep(2)
             else:
-                logger.warning(f"  ⚠ {max_retries}回リトライ後も取得失敗: {name} - {e}")
+                logger.warning(f"  ⚠ 取得失敗: {name} - {e}")
                 return []
 
     if d is None or (d.bozo and not d.entries):
