@@ -13,6 +13,7 @@ from time import mktime
 
 import feedparser
 import requests
+from deep_translator import GoogleTranslator
 
 from config import RSS_FEEDS
 
@@ -28,6 +29,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 JST = timezone(timedelta(hours=9))
+
+_translator = GoogleTranslator(source="en", target="ja")
+
+
+def translate_title(title: str) -> str:
+    """英語タイトルを日本語に翻訳する。日本語の場合はそのまま返す。"""
+    # ASCII比率が高い場合のみ翻訳（日本語タイトルは翻訳しない）
+    ascii_ratio = sum(1 for c in title if ord(c) < 128) / max(len(title), 1)
+    if ascii_ratio < 0.8:
+        return title  # 日本語タイトルはそのまま
+    try:
+        translated = _translator.translate(title)
+        return translated if translated else title
+    except Exception:
+        return title  # 翻訳失敗時は原文のまま
 
 
 # ── RSS 取得 ────────────────────────────────────────────────────────────
@@ -88,7 +104,7 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
 
         articles.append(
             {
-                "title": title,
+                "title": translate_title(title),
                 "link": entry.get("link", ""),
                 "published": published.astimezone(JST).strftime("%Y-%m-%d %H:%M"),
                 "source": name,
