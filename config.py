@@ -5,7 +5,25 @@ RSSフィード設定
 keywords フィールド（オプション）:
   指定した場合、記事タイトルにいずれかのキーワードが含まれるものだけを対象にします。
   PR Times のように全プレスリリースが流れるフィードで関連記事だけを拾うのに使います。
+
+ticker フィールド（オプション）:
+  株価ティッカーシンボルを指定すると、Slack表示時に株価変動率を併記します。
+  日本株は ".T" 付き（例: "2120.T"）、米国株はそのまま（例: "ZG"）。
 """
+
+from urllib.parse import quote
+
+# ── ヘルパー関数 ────────────────────────────────────────────────────────
+
+def _gnews_jp(query: str) -> str:
+    """Google News RSS URL（日本語）を生成する。"""
+    return f"https://news.google.com/rss/search?q={quote(query)}&hl=ja&gl=JP&ceid=JP:ja"
+
+
+def _gnews_en(query: str) -> str:
+    """Google News RSS URL（英語）を生成する。"""
+    return f"https://news.google.com/rss/search?q={quote(query)}&hl=en&gl=US&ceid=US:en"
+
 
 # ── キーワード定義 ──────────────────────────────────────────────────────
 
@@ -62,30 +80,6 @@ AI_CONSUMER_KEYWORDS = [
     "generative AI", "gen AI", "AI index",
 ]
 
-# AI投資・マーケット動向用: VC・アナリスト・コンサル系キーワード
-AI_MARKET_KEYWORDS = [
-    # 投資・資金調達
-    "AI investment", "AI funding", "AI startup", "AI venture",
-    "fundraise", "Series A", "Series B", "valuation",
-    "投資", "資金調達", "出資", "AI市場",
-    # マーケット分析
-    "market", "trend", "forecast", "outlook", "prediction",
-    "landscape", "ecosystem", "disruption",
-    "AI market", "AI industry", "AI sector",
-    # トレンド・戦略
-    "AI strategy", "AI transformation", "AI roadmap",
-    "AI infrastructure", "AI platform", "AI stack",
-    "frontier model", "foundation model", "AI agent",
-    "generative AI", "gen AI", "LLM",
-    # 日本語キーワード
-    "AI戦略", "AI投資", "AI市場", "AIトレンド",
-    "生成AI", "AIエージェント", "AIスタートアップ",
-    # 資本市場
-    "IPO", "earnings", "revenue", "stock", "shares",
-    "Wall Street", "Nvidia", "Microsoft", "Google", "Meta",
-    "semiconductor", "chip", "GPU", "data center",
-    "AI spending", "capex", "AI bubble", "AI hype",
-]
 
 RSS_FEEDS = [
     # ─── 海外AIニュース ─────────────────────────────────────────────────
@@ -154,7 +148,7 @@ RSS_FEEDS = [
         "url": "https://deepmind.google/blog/rss.xml",
         "category": "Horizontal AI",
     },
-    # ─── 競合動向：飲食 ────────────────────────────────────────────────
+    # ─── 競合動向：飲食（AI機能リリース） ──────────────────────────────
     {
         "name": "カカクコム (食べログ)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=1455",
@@ -185,7 +179,7 @@ RSS_FEEDS = [
         "category": "競合：飲食",
         "keywords": AI_SERVICE_KEYWORDS,
     },
-    # ─── 競合動向：住まい ──────────────────────────────────────────────
+    # ─── 競合動向：住まい（AI機能リリース） ────────────────────────────
     {
         "name": "LIFULL (HOME'S)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=33058",
@@ -210,7 +204,7 @@ RSS_FEEDS = [
         "category": "競合：住まい",
         "keywords": AI_SERVICE_KEYWORDS,
     },
-    # ─── 競合動向：美容 ────────────────────────────────────────────────
+    # ─── 競合動向：美容（AI機能リリース） ──────────────────────────────
     {
         "name": "MIXI (minimo)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=25121",
@@ -223,14 +217,14 @@ RSS_FEEDS = [
         "category": "競合：美容",
         "keywords": AI_SERVICE_KEYWORDS,
     },
-    # ─── 競合動向：自動車 ──────────────────────────────────────────────
+    # ─── 競合動向：自動車（AI機能リリース） ────────────────────────────
     {
         "name": "プロトコーポレーション (goo-net)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=17791",
         "category": "競合：自動車",
         "keywords": AI_SERVICE_KEYWORDS,
     },
-    # ─── 競合動向：旅行 ────────────────────────────────────────────────
+    # ─── 競合動向：旅行（AI機能リリース） ──────────────────────────────
     {
         "name": "楽天グループ (楽天トラベル)",
         "url": "https://prtimes.jp/companyrdf.php?company_id=5889",
@@ -329,66 +323,121 @@ RSS_FEEDS = [
         "category": "カスタマーAI動向",
         "keywords": AI_CONSUMER_KEYWORDS,
     },
-    # ─── AI投資・マーケット動向 ────────────────────────────────────────
+    # ─── 国内競合ニュース（Google News: 幅広く収集） ───────────────────
+    # キーワードフィルタなし = 決算・事業・AI すべて拾う
     {
-        "name": "a16z",
-        "url": "https://a16z.com/feed/",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "LIFULL",
+        "url": _gnews_jp("LIFULL HOME'S"),
+        "category": "国内競合ニュース",
+        "ticker": "2120.T",
     },
     {
-        "name": "CB Insights",
-        "url": "https://www.cbinsights.com/research/feed/",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "オープンハウス",
+        "url": _gnews_jp("オープンハウスグループ"),
+        "category": "国冇競合ニュース",
+        "ticker": "3288.T",
     },
     {
-        "name": "Crunchbase News",
-        "url": "https://news.crunchbase.com/feed/",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "カカクコム",
+        "url": _gnews_jp("カカクコム OR 食べログ"),
+        "category": "国内競合ニュース",
+        "ticker": "2371.T",
     },
     {
-        "name": "Benedict Evans",
-        "url": "https://www.ben-evans.com/feed",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "ぐるなび",
+        "url": _gnews_jp("ぐるなび"),
+        "category": "国冇競合ニュース",
+        "ticker": "2440.T",
     },
     {
-        "name": "BCG",
-        "url": "https://www.bcg.com/rss.xml",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "MIXI",
+        "url": _gnews_jp("MIXI minimo ミクシィ"),
+        "category": "国内競合ニュース",
+        "ticker": "2121.T",
     },
     {
-        "name": "Bain & Company",
-        "url": "https://www.bain.com/insights/rss/",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "一休",
+        "url": _gnews_jp("一休.com OR 一休 ホテル予約"),
+        "category": "国冇競合ニュース",
+        "ticker": "4689.T",
     },
     {
-        "name": "Reuters Technology",
-        "url": "https://www.reutersagency.com/feed/?best-topics=tech",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "楽天グループ",
+        "url": _gnews_jp("楽天トラベル OR 楽天ビューティー OR 楽天 AI"),
+        "category": "国冇競合ニュース",
+        "ticker": "4755.T",
     },
     {
-        "name": "CNBC Technology",
-        "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "プロトコーポレーション",
+        "url": _gnews_jp("プロトコーポレーション OR グーネット"),
+        "category": "国内競合ニュース",
+        "ticker": "4298.T",
+    },
+    # ─── 海外競合ニュース（Google News: 幅広く収集） ───────────────────
+    # 住まい
+    {
+        "name": "Zillow",
+        "url": _gnews_en("Zillow"),
+        "category": "海外競合ニュース",
+        "ticker": "ZG",
     },
     {
-        "name": "Seeking Alpha",
-        "url": "https://seekingalpha.com/feed.xml",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "Rocket Companies",
+        "url": _gnews_en("Rocket Companies OR Rocket Mortgage"),
+        "category": "海外競合ニュース",
+        "ticker": "RKT",
     },
     {
-        "name": "Nasdaq Newsroom",
-        "url": "https://www.nasdaq.com/feed/rssoutbound?category=Artificial+Intelligence",
-        "category": "AI投資・マーケット",
-        "keywords": AI_MARKET_KEYWORDS,
+        "name": "eXp World Holdings",
+        "url": _gnews_en("eXp Realty OR eXp World Holdings"),
+        "category": "海外競合ニュース",
+        "ticker": "EXPI",
+    },
+    {
+        "name": "Compass Inc",
+        "url": _gnews_en("Compass real estate COMP"),
+        "category": "海外競合ニュース",
+        "ticker": "COMP",
+    },
+    # 飲食
+    {
+        "name": "Toast",
+        "url": _gnews_en("Toast Inc restaurant technology"),
+        "category": "海外競合ニュース",
+        "ticker": "TOST",
+    },
+    # 旅行
+    {
+        "name": "Booking Holdings",
+        "url": _gnews_en("Booking Holdings OR Booking.com"),
+        "category": "海外競合ニュース",
+        "ticker": "BKNG",
+    },
+    {
+        "name": "Expedia Group",
+        "url": _gnews_en("Expedia Group"),
+        "category": "海外競合ニュース",
+        "ticker": "EXPE",
+    },
+    # Multi-Vertical
+    {
+        "name": "Yelp",
+        "url": _gnews_en("Yelp Inc"),
+        "category": "海外競合ニュース",
+        "ticker": "YELP",
+    },
+    # 自動車
+    {
+        "name": "CarGurus",
+        "url": _gnews_en("CarGurus"),
+        "category": "海外競合ニュース",
+        "ticker": "CARG",
+    },
+    {
+        "name": "Cars.com",
+        "url": _gnews_en("Cars.com"),
+        "category": "海外競合ニュース",
+        "ticker": "CARS",
     },
     # ─── AIトレンドメディア ─────────────────────────────────────────────
     {
