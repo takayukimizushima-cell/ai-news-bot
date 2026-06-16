@@ -35,15 +35,99 @@ _translator = GoogleTranslator(source="en", target="ja")
 
 def translate_title(title: str) -> str:
     """英語タイトルを日本語に翻訳する。日本語の場合はそのまま返す。"""
-    # ASCII比率が高い場合のみ翻訳（日本語タイトルは翻訳しない）
     ascii_ratio = sum(1 for c in title if ord(c) < 128) / max(len(title), 1)
     if ascii_ratio < 0.8:
-        return title  # 日本語タイトルはそのまま
+        return title
     try:
         translated = _translator.translate(title)
         return translated if translated else title
     except Exception:
-        return title  # 翻訳失敗時は原文のまま
+        return title
+
+
+# ── 株価取得 ────────────────────────────────────────────────────────────
+def fetch_stock_changes(tickers: list[str]) -> dict[str, dict]:
+    """複数の銘柄の前日比（%）を一括取得する。"""
+    if not tickers:
+        return {}
+
+    try:
+        import yfinance as yf
+    except ImportError:
+        logger.warning("yfinance がインストールされていません。株価情報をスキップします。")
+        return {}
+
+    result = {}
+    unique_tickers = list(set(tickers))
+    logger.info(f"株価取得中: {len(unique_tickers)} 銘柄")
+
+    try:
+        # 一括ダウンロード（5日分で週末/祝日をカバー）
+        data = yf.download(unique_tickers, period="5d", progress=False, threads=True)
+
+        if data.empty:
+            logger.warning("株価データが空です")
+            return {}
+
+        for ticker in unique_tickers:
+            try:
+                if len(unique_tickers) == 1:
+                    closes = data["Close"]
+                else:
+                    closes = data["Close"][ticker]
+
+                closes = closes.dropna()
+                if len(closes) >= 2:
+                    prev_close = closes.iloc[-2]
+                    curr_close = closes.iloc[-1]
+                    change_pct = ((curr_close - prev_close) / prev_close) * 100
+                    result[ticker] = {
+                        "price": round(float(curr_close), 2),
+                        "change_pct": round(float(change_pct), 2),
+                    }
+            except Exception as e:
+                logger.warning(f"  株価解析失敗 {ticker}: {e}")
+    except Exception as e:
+        logger.warning(f"株価一括取得失敗: {e}")
+        # フォールバック: 個別取得
+        for ticker in unique_tickers:
+            try:
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period="5d")
+                closes = hist["Close"].dropna()
+                if len(closes) >= 2:
+                    prev_close = closes.iloc[-2]
+                    curr_close = closes.iloc[-1]
+                    change_pct = ((curr_close - prev_close) / prev_close) * 100
+                    result[ticker] = {
+                        "price": round(float(curr_close), 2),
+                        "change_pct": round(float(change_pct), 2),
+                    }
+            except Exception:
+                pass
+
+    logger.info(f"株価取得完了: {len(result)}/{len(unique_tickers)} 銘柄")
+    return result
+
+
+def format_stock_change(ticker: str, stock_data: dict) -> str:
+    """株価変動率を Slack 用にフォーマットする。"""
+    info = stock_data.get(ticker)
+    if not info:
+        return ""
+    pct = info["change_pct"]
+    if pct >= 0:
+        arrow = "📈"
+        sign = "+"
+    else:
+        arrow = "📉"
+        sign = ""
+    # 日本株 (.T) は通貨表示なし、米国株はドル表示
+    if ticker.endswith(".T"):
+        price_str = f"¥{info['price']:,.0f}"
+    else:
+        price_str = f"${info['price']:,.2f}"
+    return f"  |  {arrow} {ticker.replace('.T', '')} {sign}{pct:.1f}% ({price_str})"
 
 
 # ── RSS 取得 ────────────────────────────────────────────────────────────
@@ -57,13 +141,12 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
     d = None
     for attempt in range(1, max_retries + 1):
         try:
-            # requestsで先に取得（タイムアウト10秒）してからfeedparserに渡す
             resp = requests.get(url, timeout=10, headers={"User-Agent": "AI-News-Bot/1.0"})
             resp.raise_for_status()
             d = feedparser.parse(resp.content)
             if d.bozo and not d.entries:
                 raise Exception(f"bozo error: {getattr(d, 'bozo_exception', 'unknown')}")
-            break  # 取得成功
+            break
         except Exception as e:
             if attempt < max_retries:
                 logger.info(f"  ↻ リトライ {attempt}/{max_retries} (2秒後): {name}")
@@ -77,9 +160,9 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
 
     articles = []
     keywords = feed.get("keywords", [])
+    ticker = feed.get("ticker", "")
 
-    for entry in d.entries[:20]:  # 最新20件をチェック
-        # 公開日時の取得
+    for entry in d.entries[:20]:
         published = None
         for attr in ("published_parsed", "updated_parsed"):
             if hasattr(entry, attr) and getattr(entry, attr):
@@ -88,17 +171,14 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
                 )
                 break
 
-        # 日時が取得できない場合はスキップ
         if published is None:
             continue
 
-        # 過去 N 時間以内の記事のみ
         if published < cutoff:
             continue
 
         title = entry.get("title", "(タイトルなし)")
 
-        # キーワードフィルタ: 指定がある場合、タイトルに含まれるもののみ
         if keywords and not any(kw.lower() in title.lower() for kw in keywords):
             continue
 
@@ -109,6 +189,7 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
                 "published": published.astimezone(JST).strftime("%Y-%m-%d %H:%M"),
                 "source": name,
                 "category": feed.get("category", ""),
+                "ticker": ticker,
             }
         )
 
@@ -118,7 +199,7 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
 
 
 # ── Slack メッセージ組み立て ─────────────────────────────────────────────
-def build_slack_blocks(articles: list[dict]) -> dict:
+def build_slack_blocks(articles: list[dict], stock_data: dict) -> dict:
     """Slack Block Kit 形式のメッセージを組み立てる。"""
     now_jst = datetime.now(JST).strftime("%Y年%m月%d日 %H:%M")
 
@@ -134,7 +215,6 @@ def build_slack_blocks(articles: list[dict]) -> dict:
         {"type": "divider"},
     ]
 
-    # カテゴリごとにグルーピング
     by_category: dict[str, list[dict]] = {}
     for a in articles:
         by_category.setdefault(a["category"], []).append(a)
@@ -149,10 +229,29 @@ def build_slack_blocks(articles: list[dict]) -> dict:
         "競合：自動車": "🚗",
         "競合：旅行": "✈️",
         "カスタマーAI動向": "📊",
-        "AI投資・マーケット": "💰",
+        "国内競合ニュース": "🏢",
+        "海外競合ニュース": "🌐",
     }
 
-    for category, items in by_category.items():
+    # カテゴリ表示順を定義
+    category_order = [
+        "国内競合ニュース", "海外競合ニュース",
+        "海外AI", "国内AI", "Horizontal AI",
+        "競合：飲食", "競合：住まい", "競合：美容", "競合：自動車", "競合：旅行",
+        "カスタマーAI動向",
+    ]
+
+    # 定義順 → 未定義カテゴリの順で表示
+    sorted_categories = []
+    for cat in category_order:
+        if cat in by_category:
+            sorted_categories.append(cat)
+    for cat in by_category:
+        if cat not in sorted_categories:
+            sorted_categories.append(cat)
+
+    for category in sorted_categories:
+        items = by_category[category]
         emoji = category_emojis.get(category, "📌")
         blocks.append(
             {
@@ -165,6 +264,11 @@ def build_slack_blocks(articles: list[dict]) -> dict:
         )
 
         for item in items:
+            # 株価情報を付与
+            stock_str = ""
+            if item.get("ticker") and stock_data:
+                stock_str = format_stock_change(item["ticker"], stock_data)
+
             blocks.append(
                 {
                     "type": "section",
@@ -172,7 +276,7 @@ def build_slack_blocks(articles: list[dict]) -> dict:
                         "type": "mrkdwn",
                         "text": (
                             f"<{item['link']}|{item['title']}>\n"
-                            f"_{item['source']}_ ・ {item['published']}"
+                            f"_{item['source']}_ ・ {item['published']}{stock_str}"
                         ),
                     },
                 }
@@ -182,7 +286,7 @@ def build_slack_blocks(articles: list[dict]) -> dict:
 
     return {
         "blocks": blocks,
-        "text": f"AI News Digest - {len(articles)} 件の新着記事",  # fallback
+        "text": f"AI News Digest - {len(articles)} 件の新着記事",
     }
 
 
@@ -208,7 +312,6 @@ def post_to_slack(payload: dict) -> None:
     """Incoming Webhook で Slack に投稿する。"""
     if not SLACK_WEBHOOK_URL:
         logger.error("SLACK_WEBHOOK_URL が設定されていません。")
-        # デバッグ用: stdout に出力
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         sys.exit(1)
 
@@ -232,16 +335,25 @@ def main():
     logger.info(f"対象期間: {cutoff.isoformat()} 以降")
 
     all_articles: list[dict] = []
+    all_tickers: list[str] = []
+
     for feed in RSS_FEEDS:
         articles = fetch_articles(feed, cutoff)
         all_articles.extend(articles)
+        # ティッカー収集
+        if feed.get("ticker"):
+            all_tickers.append(feed["ticker"])
 
     logger.info(f"合計: {len(all_articles)} 件の新着記事")
 
+    # 株価データ取得
+    stock_data = {}
+    if all_tickers:
+        stock_data = fetch_stock_changes(all_tickers)
+
     if all_articles:
-        # 公開日時で新しい順にソート
         all_articles.sort(key=lambda a: a["published"], reverse=True)
-        payload = build_slack_blocks(all_articles)
+        payload = build_slack_blocks(all_articles, stock_data)
     else:
         payload = build_no_news_message()
 
