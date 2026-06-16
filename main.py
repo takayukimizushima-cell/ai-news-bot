@@ -284,6 +284,19 @@ def build_slack_blocks(articles: list[dict], stock_data: dict) -> dict:
 
         blocks.append({"type": "divider"})
 
+    # Slack Block Kit の上限は 50 ブロック。超過分を切り詰める
+    if len(blocks) > 49:
+        blocks = blocks[:49]
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"_（他にも記事があります。上限のため省略）_",
+                },
+            }
+        )
+
     return {
         "blocks": blocks,
         "text": f"AI News Digest - {len(articles)} 件の新着記事",
