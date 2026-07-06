@@ -26,6 +26,7 @@ jobs:
       - name: Run AI News Collector
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           HOURS_LOOKBACK: "24"
           MAX_ARTICLES_PER_FEED: "5"
         run: python main.py
