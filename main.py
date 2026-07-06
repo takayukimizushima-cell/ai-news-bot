@@ -16,6 +16,7 @@ import requests
 from deep_translator import GoogleTranslator
 
 from config import RSS_FEEDS
+from filters import filter_articles
 
 # ── 設定 ────────────────────────────────────────────────────────────────
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
@@ -129,7 +130,6 @@ def format_stock_change(ticker: str, stock_data: dict) -> str:
         price_str = f"${info['price']:,.2f}"
     return f"  |  {arrow} {ticker.replace('.T', '')} {sign}{pct:.1f}% ({price_str})"
 
-
 # ── RSS 取得 ────────────────────────────────────────────────────────────
 def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
     """指定フィードから cutoff 以降の記事を取得する。"""
@@ -196,7 +196,6 @@ def fetch_articles(feed: dict, cutoff: datetime) -> list[dict]:
     articles = articles[:MAX_ARTICLES_PER_FEED]
     logger.info(f"  → {len(articles)} 件の新着記事")
     return articles
-
 
 # ── Slack メッセージ組み立て ─────────────────────────────────────────────
 def build_slack_blocks(articles: list[dict], stock_data: dict) -> dict:
@@ -302,7 +301,6 @@ def build_slack_blocks(articles: list[dict], stock_data: dict) -> dict:
         "text": f"AI News Digest - {len(articles)} 件の新着記事",
     }
 
-
 def build_no_news_message() -> dict:
     """新着記事が無い場合のメッセージ。"""
     now_jst = datetime.now(JST).strftime("%Y年%m月%d日 %H:%M")
@@ -358,6 +356,10 @@ def main():
             all_tickers.append(feed["ticker"])
 
     logger.info(f"合計: {len(all_articles)} 件の新着記事")
+
+    # 国内/海外競合ニュースは Claude で関連度フィルタをかける
+    all_articles = filter_articles(all_articles)
+    logger.info(f"フィルタ後: {len(all_articles)} 件")
 
     # 株価データ取得
     stock_data = {}
