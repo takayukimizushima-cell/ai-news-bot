@@ -4,458 +4,525 @@ RSSフィード設定
 
 keywords フィールド（オプション）:
   指定した場合、記事タイトルにいずれかのキーワードが含まれるものだけを対象にします。
-  PR Times のように全プレスリリースが流れるフィードで関連記事だけを拾うのに使います。
+    PR Times のように全プレスリリースが流れるフィードで関連記事だけを拾うのに使います。
 
-ticker フィールド（オプション）:
-  株価ティッカーシンボルを指定すると、Slack表示時に株価変動率を併記します。
-  日本株は ".T" 付き（例: "2120.T"）、米国株はそのまま（例: "ZG"）。
-"""
+    ticker フィールド（オプション）:
+      株価ティッカーシンボルを指定すると、Slack表示時に株価変動率を併記します。
+        日本株は ".T" 付き（例: "2120.T"）、米国株はそのまま（例: "ZG"）。
+          未上場企業は空文字列にしてください。
+
+          国内競合ニュース / 海外競合ニュース カテゴリは Google News のキーワード検索で
+          幅広く記事を収集したあと、filters.py の Claude 判定で無関係な記事
+          （コラボメニュー、新型車情報、株式売買レポートなど）を除外しています。
+          """
 
 from urllib.parse import quote
 
 # ── ヘルパー関数 ────────────────────────────────────────────────────────
 
 def _gnews_jp(query: str) -> str:
-    """Google News RSS URL（日本語）を生成する。"""
-    return f"https://news.google.com/rss/search?q={quote(query)}&hl=ja&gl=JP&ceid=JP:ja"
+      """Google News RSS URL（日本語）を生成する。"""
+      return f"https://news.google.com/rss/search?q={quote(query)}&hl=ja&gl=JP&ceid=JP:ja"
 
 
 def _gnews_en(query: str) -> str:
-    """Google News RSS URL（英語）を生成する。"""
-    return f"https://news.google.com/rss/search?q={quote(query)}&hl=en&gl=US&ceid=US:en"
+      """Google News RSS URL（英語）を生成する。"""
+      return f"https://news.google.com/rss/search?q={quote(query)}&hl=en&gl=US&ceid=US:en"
 
 
 # ── キーワード定義 ──────────────────────────────────────────────────────
 
 # 競合企業フィード用: サービスへのAI組み込み・機能リリース観点
 AI_SERVICE_KEYWORDS = [
-    # AI活用・導入
+      # AI活用・導入
     "AI搭載", "AI機能", "AI活用", "AI導入", "AI対応", "AI連携",
-    "AI実装", "AIを活用", "AIによる",
-    # 生成AI / LLM 具体名
-    "生成AI", "ChatGPT", "GPT", "Claude", "Gemini", "Copilot",
-    "LLM", "大規模言語モデル",
-    # 機能系
-    "AIアシスタント", "AIエージェント", "AIチャット", "チャットボット",
-    "AI検索", "AIレコメンド", "AI分析", "AI予測", "AI翻訳",
-    "AI査定", "AI接客", "AI提案", "AIマッチング",
-    "自動生成", "自動応答", "自動翻訳",
-    "パーソナライズ", "レコメンデーション",
-    # 技術系
-    "画像認識", "音声認識", "自然言語処理", "機械学習",
-    "OCR", "ディープラーニング",
+      "AI実装", "AIを活用", "AIによる",
+      # 生成AI / LLM 具体名
+      "生成AI", "ChatGPT", "GPT", "Claude", "Gemini", "Copilot",
+      "LLM", "大規模言語モデル",
+      # 機能系
+      "AIアシスタント", "AIエージェント", "AIチャット", "チャットボット",
+      "AI検索", "AIレコメンド", "AI分析", "AI予測", "AI翻訳",
+      "AI査定", "AI接客", "AI提案", "AIマッチング",
+      "自動生成", "自動応答", "自動翻訳",
+      "パーソナライズ", "レコメンデーション",
+      # 技術系
+      "画像認識", "音声認識", "自然言語処理", "機械学習",
+      "OCR", "ディープラーニング",
 ]
 
 # 一般AIニュースフィード用: プロダクト・機能寄りのキーワード
 AI_PRODUCT_KEYWORDS = [
-    # 機能リリース系
+      # 機能リリース系
     "launch", "release", "feature", "update", "announce",
-    "tool", "API", "plugin", "integration",
-    # AI プロダクト
-    "ChatGPT", "GPT-4", "GPT-5", "Claude", "Gemini", "Copilot",
-    "Sora", "DALL-E", "Midjourney", "Stable Diffusion",
-    "agent", "assistant", "search", "coding",
-    # 日本語キーワード（国内ニュース用）
-    "新機能", "提供開始", "リリース", "アップデート",
-    "AI搭載", "AI活用", "AI機能", "生成AI",
-    "AIエージェント", "AIアシスタント",
+      "tool", "API", "plugin", "integration",
+      # AI プロダクト
+      "ChatGPT", "GPT-4", "GPT-5", "Claude", "Gemini", "Copilot",
+      "Sora", "DALL-E", "Midjourney", "Stable Diffusion",
+      "agent", "assistant", "search", "coding",
+      # 日本語キーワード（国内ニュース用）
+      "新機能", "提供開始", "リリース", "アップデート",
+      "AI搭載", "AI活用", "AI機能", "生成AI",
+      "AIエージェント", "AIアシスタント",
 ]
 
 # カスタマーAI動向用: 調査レポート・利用実態系キーワード
 AI_CONSUMER_KEYWORDS = [
-    # 調査・レポート系
+      # 調査・レポート系
     "調査", "レポート", "白書", "実態調査", "意識調査", "アンケート",
-    "調査結果", "調査レポート", "利用動向調査",
-    # AI利用・動向
-    "AI利用", "AI活用", "AI動向", "AI普及", "AI浸透",
-    "利用率", "利用動向", "利用実態", "利用意向",
-    "生成AI利用", "生成AI活用", "ChatGPT利用",
-    # ユーザー・消費者
-    "消費者", "ユーザー", "生活者", "個人利用",
-    # トレンド
-    "AI adoption", "AI survey", "AI usage", "AI trend",
-    # 海外レポート用キーワード
-    "report", "survey", "research", "study", "forecast",
-    "consumer", "adoption", "workforce", "enterprise",
-    "generative AI", "gen AI", "AI index",
+      "調査結果", "調査レポート", "利用動向調査",
+      # AI利用・動向
+      "AI利用", "AI活用", "AI動向", "AI普及", "AI浸透",
+      "利用率", "利用動向", "利用実態", "利用意向",
+      "生成AI利用", "生成AI活用", "ChatGPT利用",
+      # ユーザー・消費者
+      "消費者", "ユーザー", "生活者", "個人利用",
+      # トレンド
+      "AI adoption", "AI survey", "AI usage", "AI trend",
+      # 海外レポート用キーワード
+      "report", "survey", "research", "study", "forecast",
+      "consumer", "adoption", "workforce", "enterprise",
+      "generative AI", "gen AI", "AI index",
 ]
 
 
+
 RSS_FEEDS = [
-    # ─── 海外AIニュース ─────────────────────────────────────────────────
+      # ─── 海外AIニュース ─────────────────────────────────────────────────
     {
-        "name": "TechCrunch AI",
-        "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
-        "category": "海外AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
+              "name": "TechCrunch AI",
+              "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+              "category": "海外AI",
+              "keywords": AI_PRODUCT_KEYWORDS,
     },
-    {
-        "name": "The Verge AI",
-        "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
-        "category": "海外AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
-    {
-        "name": "VentureBeat AI",
-        "url": "https://venturebeat.com/category/ai/feed/",
-        "category": "海外AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
-    {
-        "name": "WIRED AI",
-        "url": "https://www.wired.com/feed/tag/ai/latest/rss",
-        "category": "海外AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
-    # ─── 国内AIニュース ─────────────────────────────────────────────────
-    {
-        "name": "ITmedia AI+",
-        "url": "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml",
-        "category": "国内AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
-    {
-        "name": "Ledge.ai",
-        "url": "https://ledge.ai/feed/",
-        "category": "国内AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
-    {
-        "name": "AINOW",
-        "url": "https://ainow.ai/feed/",
-        "category": "国内AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
-    {
-        "name": "Impress Watch",
-        "url": "https://www.watch.impress.co.jp/data/rss/1.0/ipw/feed.rdf",
-        "category": "国内AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
-    # ─── Horizontal AI（ラボ / プラットフォーム） ──────────────────────
-    {
-        "name": "OpenAI Blog",
-        "url": "https://openai.com/blog/rss/",
-        "category": "Horizontal AI",
-    },
-    {
-        "name": "Anthropic Blog",
-        "url": "https://www.anthropic.com/rss.xml",
-        "category": "Horizontal AI",
-    },
-    {
-        "name": "Google DeepMind Blog",
-        "url": "https://deepmind.google/blog/rss.xml",
-        "category": "Horizontal AI",
-    },
-    # ─── 競合動向：飲食（AI機能リリース） ──────────────────────────────
-    {
-        "name": "カカクコム (食べログ)",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=1455",
-        "category": "競合：飲食",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "ぐるなび",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=1511",
-        "category": "競合：飲食",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "Retty",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=4025",
-        "category": "競合：飲食",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "トレタ",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=38464",
-        "category": "競合：飲食",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "ダイニー",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=43056",
-        "category": "競合：飲食",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    # ─── 競合動向：住まい（AI機能リリース） ────────────────────────────
-    {
-        "name": "LIFULL (HOME'S)",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=33058",
-        "category": "競合：住まい",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "アットホーム",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=51123",
-        "category": "競合：住まい",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "カナリー",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=46040",
-        "category": "競合：住まい",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "イタンジ",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=14691",
-        "category": "競合：住まい",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    # ─── 競合動向：美容（AI機能リリース） ──────────────────────────────
-    {
-        "name": "MIXI (minimo)",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=25121",
-        "category": "競合：美容",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "楽天グループ (楽天ビューティー)",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=5889",
-        "category": "競合：美容",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    # ─── 競合動向：自動車（AI機能リリース） ────────────────────────────
-    {
-        "name": "プロトコーポレーション (goo-net)",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=17791",
-        "category": "競合：自動車",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    # ─── 競合動向：旅行（AI機能リリース） ──────────────────────────────
-    {
-        "name": "楽天グループ (楽天トラベル)",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=5889",
-        "category": "競合：旅行",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "Booking.com Japan",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=15916",
-        "category": "競合：旅行",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "エクスペディア",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=3373",
-        "category": "競合：旅行",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    {
-        "name": "Agoda",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=152576",
-        "category": "競合：旅行",
-        "keywords": AI_SERVICE_KEYWORDS,
-    },
-    # ─── カスタマーAI動向（調査・レポート） ────────────────────────────
-    {
-        "name": "MM総研",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=6717",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "ICT総研",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=19182",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "電通総研",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=43138",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "デロイト トーマツ",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=202",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "PwC Japan",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=29907",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "マッキンゼー",
-        "url": "https://prtimes.jp/companyrdf.php?company_id=94688",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "日経クロステック",
-        "url": "https://xtech.nikkei.com/rss/xtech-it.rdf",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    # ─── カスタマーAI動向：海外（調査・レポート） ──────────────────────
-    {
-        "name": "McKinsey Insights",
-        "url": "https://www.mckinsey.com/insights/rss",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "Gartner Newsroom",
-        "url": "https://www.gartner.com/en/newsroom/rss",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "Forrester Blog",
-        "url": "https://www.forrester.com/blogs/feed/",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "Pew Research (Internet & Tech)",
-        "url": "https://www.pewresearch.org/topic/internet-technology/feed/",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    {
-        "name": "Stanford HAI",
-        "url": "https://hai.stanford.edu/news/rss.xml",
-        "category": "カスタマーAI動向",
-        "keywords": AI_CONSUMER_KEYWORDS,
-    },
-    # ─── 国内競合ニュース（Google News: 幅広く収集） ───────────────────
-    # キーワードフィルタなし = 決算・事業・AI すべて拾う
-    {
-        "name": "LIFULL",
-        "url": _gnews_jp("LIFULL HOME'S"),
-        "category": "国内競合ニュース",
-        "ticker": "2120.T",
-    },
-    {
-        "name": "オープンハウス",
-        "url": _gnews_jp("オープンハウスグループ"),
-        "category": "国冇競合ニュース",
-        "ticker": "3288.T",
-    },
-    {
-        "name": "カカクコム",
-        "url": _gnews_jp("カカクコム OR 食べログ"),
-        "category": "国内競合ニュース",
-        "ticker": "2371.T",
-    },
-    {
-        "name": "ぐるなび",
-        "url": _gnews_jp("ぐるなび"),
-        "category": "国冇競合ニュース",
-        "ticker": "2440.T",
-    },
-    {
-        "name": "MIXI",
-        "url": _gnews_jp("MIXI minimo ミクシィ"),
-        "category": "国内競合ニュース",
-        "ticker": "2121.T",
-    },
-    {
-        "name": "一休",
-        "url": _gnews_jp("一休.com OR 一休 ホテル予約"),
-        "category": "国冇競合ニュース",
-        "ticker": "4689.T",
-    },
-    {
-        "name": "楽天グループ",
-        "url": _gnews_jp("楽天トラベル OR 楽天ビューティー OR 楽天 AI"),
-        "category": "国冇競合ニュース",
-        "ticker": "4755.T",
-    },
-    {
-        "name": "プロトコーポレーション",
-        "url": _gnews_jp("プロトコーポレーション OR グーネット"),
-        "category": "国内競合ニュース",
-        "ticker": "",  # 上場廃止（MBO）
-    },
-    # ─── 海外競合ニュース（Google News: 幅広く収集） ───────────────────
-    # 住まい
-    {
-        "name": "Zillow",
-        "url": _gnews_en("Zillow"),
-        "category": "海外競合ニュース",
-        "ticker": "ZG",
-    },
-    {
-        "name": "Rocket Companies",
-        "url": _gnews_en("Rocket Companies OR Rocket Mortgage"),
-        "category": "海外競合ニュース",
-        "ticker": "RKT",
-    },
-    {
-        "name": "eXp World Holdings",
-        "url": _gnews_en("eXp Realty OR eXp World Holdings"),
-        "category": "海外競合ニュース",
-        "ticker": "EXPI",
-    },
-    {
-        "name": "Compass Inc",
-        "url": _gnews_en("Compass real estate COMP"),
-        "category": "海外競合ニュース",
-        "ticker": "COMP",
-    },
-    # 飲食
-    {
-        "name": "Toast",
-        "url": _gnews_en("Toast Inc restaurant technology"),
-        "category": "海外競合ニュース",
-        "ticker": "TOST",
-    },
-    # 旅行
-    {
-        "name": "Booking Holdings",
-        "url": _gnews_en("Booking Holdings OR Booking.com"),
-        "category": "海外競合ニュース",
-        "ticker": "BKNG",
-    },
-    {
-        "name": "Expedia Group",
-        "url": _gnews_en("Expedia Group"),
-        "category": "海外競合ニュース",
-        "ticker": "EXPE",
-    },
-    # Multi-Vertical
-    {
-        "name": "Yelp",
-        "url": _gnews_en("Yelp Inc"),
-        "category": "海外競合ニュース",
-        "ticker": "YELP",
-    },
-    # 自動車
-    {
-        "name": "CarGurus",
-        "url": _gnews_en("CarGurus"),
-        "category": "海外競合ニュース",
-        "ticker": "CARG",
-    },
-    {
-        "name": "Cars.com",
-        "url": _gnews_en("Cars.com"),
-        "category": "海外競合ニュース",
-        "ticker": "CARS",
-    },
-    # ─── AIトレンドメディア ─────────────────────────────────────────────
-    {
-        "name": "MIT Technology Review",
-        "url": "https://www.technologyreview.com/feed/",
-        "category": "海外AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
-    {
-        "name": "Axios",
-        "url": "https://api.axios.com/feed/",
-        "category": "海外AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
-    {
-        "name": "Ars Technica",
-        "url": "https://feeds.arstechnica.com/arstechnica/technology-lab",
-        "category": "海外AI",
-        "keywords": AI_PRODUCT_KEYWORDS,
-    },
+      {
+                "name": "The Verge AI",
+                "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
+                "category": "海外AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
+      {
+                "name": "VentureBeat AI",
+                "url": "https://venturebeat.com/category/ai/feed/",
+                "category": "海外AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
+      {
+                "name": "WIRED AI",
+                "url": "https://www.wired.com/feed/tag/ai/latest/rss",
+                "category": "海外AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
+
+      # ─── 国内AIニュース ─────────────────────────────────────────────────
+      {
+                "name": "ITmedia AI+",
+                "url": "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml",
+                "category": "国内AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
+      {
+                "name": "Ledge.ai",
+                "url": "https://ledge.ai/feed/",
+                "category": "国内AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
+      {
+                "name": "AINOW",
+                "url": "https://ainow.ai/feed/",
+                "category": "国内AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
+      {
+                "name": "Impress Watch",
+                "url": "https://www.watch.impress.co.jp/data/rss/1.0/ipw/feed.rdf",
+                "category": "国内AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
+
+      # ─── Horizontal AI（ラボ / プラットフォーム） ──────────────────────
+      {
+                "name": "OpenAI Blog",
+                "url": "https://openai.com/blog/rss/",
+                "category": "Horizontal AI",
+      },
+      {
+                "name": "Anthropic Blog",
+                "url": "https://www.anthropic.com/rss.xml",
+                "category": "Horizontal AI",
+      },
+      {
+                "name": "Google DeepMind Blog",
+                "url": "https://deepmind.google/blog/rss.xml",
+                "category": "Horizontal AI",
+      },
+
+      # ─── 競合動向：飲食（AI機能リリース） ──────────────────────────────
+      {
+                "name": "カカクコム (食べログ)",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=1455",
+                "category": "競合：飲食",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "ぐるなび",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=1511",
+                "category": "競合：飲食",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "Retty",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=4025",
+                "category": "競合：飲食",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "トレタ",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=38464",
+                "category": "競合：飲食",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "ダイニー",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=43056",
+                "category": "競合：飲食",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+
+      # ─── 競合動向：住まい（AI機能リリース） ────────────────────────────
+      {
+                "name": "LIFULL (HOME'S)",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=33058",
+                "category": "競合：住まい",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "アットホーム",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=51123",
+                "category": "競合：住まい",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "カナリー",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=46040",
+                "category": "競合：住まい",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "イタンジ",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=14691",
+                "category": "競合：住まい",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+
+      # ─── 競合動向：美容（AI機能リリース） ──────────────────────────────
+      {
+                "name": "MIXI (minimo)",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=25121",
+                "category": "競合：美容",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "楽天グループ (楽天ビューティー)",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=5889",
+                "category": "競合：美容",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+
+      # ─── 競合動向：自動車（AI機能リリース） ────────────────────────────
+      {
+                "name": "プロトコーポレーション (goo-net)",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=17791",
+                "category": "競合：自動車",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      # ─── 競合動向：旅行（AI機能リリース） ──────────────────────────────
+      {
+                "name": "楽天グループ (楽天トラベル)",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=5889",
+                "category": "競合：旅行",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "Booking.com Japan",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=15916",
+                "category": "競合：旅行",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+
+      {
+                "name": "エクスペディア",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=3373",
+                "category": "競合：旅行",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+      {
+                "name": "Agoda",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=152576",
+                "category": "競合：旅行",
+                "keywords": AI_SERVICE_KEYWORDS,
+      },
+
+      # ─── カスタマーAI動向（調査・レポート） ────────────────────────────
+      {
+                "name": "MM総研",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=6717",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+      {
+                "name": "ICT総研",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=19182",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+      {
+                "name": "電通総研",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=43138",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+
+      {
+                "name": "デロイト トーマツ",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=202",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+      {
+                "name": "PwC Japan",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=29907",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+      {
+                "name": "マッキンゼー",
+                "url": "https://prtimes.jp/companyrdf.php?company_id=94688",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+      {
+                "name": "日経クロステック",
+                "url": "https://xtech.nikkei.com/rss/xtech-it.rdf",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+
+      # ─── カスタマーAI動向：海外（調査・レポート） ──────────────────────
+      {
+                "name": "McKinsey Insights",
+                "url": "https://www.mckinsey.com/insights/rss",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+      {
+                "name": "Gartner Newsroom",
+                "url": "https://www.gartner.com/en/newsroom/rss",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+
+      {
+                "name": "Forrester Blog",
+                "url": "https://www.forrester.com/blogs/feed/",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+      {
+                "name": "Pew Research (Internet & Tech)",
+                "url": "https://www.pewresearch.org/topic/internet-technology/feed/",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+      {
+                "name": "Stanford HAI",
+                "url": "https://hai.stanford.edu/news/rss.xml",
+                "category": "カスタマーAI動向",
+                "keywords": AI_CONSUMER_KEYWORDS,
+      },
+
+      # ─── 国内競合ニュース（Google News: 幅広く収集） ───────────────────
+      # キーワードフィルタなし = 決算・事業・AI すべて拾う → filters.py で意味的に絞り込み
+      {
+                "name": "LIFULL",
+                "url": _gnews_jp("LIFULL HOME'S"),
+                "category": "国内競合ニュース",
+                "ticker": "2120.T",
+      },
+      {
+                "name": "オープンハウス",
+                "url": _gnews_jp("オープンハウスグループ"),
+                "category": "国内競合ニュース",
+                "ticker": "3288.T",
+      },
+      {
+                "name": "カカクコム",
+                "url": _gnews_jp("カカクコム OR 食べログ"),
+                "category": "国内競合ニュース",
+                "ticker": "2371.T",
+      },
+      {
+                "name": "ぐるなび",
+                "url": _gnews_jp("ぐるなび"),
+                "category": "国内競合ニュース",
+                "ticker": "2440.T",
+      },
+
+      {
+                "name": "MIXI",
+                "url": _gnews_jp("MIXI minimo ミクシィ"),
+                "category": "国内競合ニュース",
+                "ticker": "2121.T",
+      },
+      {
+                "name": "一休",
+                "url": _gnews_jp("一休.com OR 一休 ホテル予約"),
+                "category": "国内競合ニュース",
+                "ticker": "4689.T",
+      },
+      {
+                "name": "楽天グループ",
+                "url": _gnews_jp("楽天トラベル OR 楽天ビューティー OR 楽天 AI"),
+                "category": "国内競合ニュース",
+                "ticker": "4755.T",
+      },
+      {
+                "name": "プロトコーポレーション",
+                "url": _gnews_jp("プロトコーポレーション OR グーネット"),
+                "category": "国内競合ニュース",
+                "ticker": "",  # 上場廃止（MBO）
+      },
+
+      {
+                "name": "Retty",
+                "url": _gnews_jp("Retty グルメ OR Retty株式会社"),
+                "category": "国内競合ニュース",
+                "ticker": "7356.T",
+      },
+      {
+                "name": "トレタ",
+                "url": _gnews_jp("トレタ 予約管理 OR トレタ 飲食店"),
+                "category": "国内競合ニュース",
+                "ticker": "",  # 未上場
+      },
+      {
+                "name": "ダイニー",
+                "url": _gnews_jp("ダイニー 飲食店 OR ダイニー モバイルオーダー"),
+                "category": "国内競合ニュース",
+                "ticker": "",  # 未上場
+      },
+      {
+                "name": "アットホーム",
+                "url": _gnews_jp("アットホーム株式会社 OR アットホーム 不動産"),
+                "category": "国内競合ニュース",
+                "ticker": "",  # 未上場
+      },
+
+      {
+                "name": "カナリー",
+                "url": _gnews_jp("カナリー 不動産 OR CANARY 不動産"),
+                "category": "国内競合ニュース",
+                "ticker": "",  # 未上場
+      },
+      {
+                "name": "イタンジ",
+                "url": _gnews_jp("イタンジ"),
+                "category": "国内競合ニュース",
+                "ticker": "",  # 未上場
+      },
+      {
+                "name": "LINEヤフー",
+                "url": _gnews_jp("LINEヤフー OR LINEビューティープラス OR LINEレストランプラス"),
+                "category": "国内競合ニュース",
+                "ticker": "4689.T",
+      },
+
+      # ─── 海外競合ニュース（Google News: 幅広く収集） ───────────────────
+      # 住まい
+      {
+                "name": "Zillow",
+                "url": _gnews_en("Zillow"),
+                "category": "海外競合ニュース",
+                "ticker": "ZG",
+      },
+      {
+                "name": "Rocket Companies",
+                "url": _gnews_en("Rocket Companies OR Rocket Mortgage"),
+                "category": "海外競合ニュース",
+                "ticker": "RKT",
+      },
+      {
+                "name": "eXp World Holdings",
+                "url": _gnews_en("eXp Realty OR eXp World Holdings"),
+                "category": "海外競合ニュース",
+                "ticker": "EXPI",
+      },
+      {
+                "name": "Compass Inc",
+                "url": _gnews_en("Compass real estate COMP"),
+                "category": "海外競合ニュース",
+                "ticker": "COMP",
+      },
+
+      # 飲食
+      {
+                "name": "Toast",
+                "url": _gnews_en("Toast Inc restaurant technology"),
+                "category": "海外競合ニュース",
+                "ticker": "TOST",
+      },
+      # 旅行
+      {
+                "name": "Booking Holdings",
+                "url": _gnews_en("Booking Holdings OR Booking.com"),
+                "category": "海外競合ニュース",
+                "ticker": "BKNG",
+      },
+      {
+                "name": "Expedia Group",
+                "url": _gnews_en("Expedia Group"),
+                "category": "海外競合ニュース",
+                "ticker": "EXPE",
+      },
+
+      # Multi-Vertical
+      {
+                "name": "Yelp",
+                "url": _gnews_en("Yelp Inc"),
+                "category": "海外競合ニュース",
+                "ticker": "YELP",
+      },
+      # 自動車
+      {
+                "name": "CarGurus",
+                "url": _gnews_en("CarGurus"),
+                "category": "海外競合ニュース",
+                "ticker": "CARG",
+      },
+      {
+                "name": "Cars.com",
+                "url": _gnews_en("Cars.com"),
+                "category": "海外競合ニュース",
+                "ticker": "CARS",
+      },
+
+      # ─── AIトレンドメディア ─────────────────────────────────────────────
+      {
+                "name": "MIT Technology Review",
+                "url": "https://www.technologyreview.com/feed/",
+                "category": "海外AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
+      {
+                "name": "Axios",
+                "url": "https://api.axios.com/feed/",
+                "category": "海外AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
+      {
+                "name": "Ars Technica",
+                "url": "https://feeds.arstechnica.com/arstechnica/technology-lab",
+                "category": "海外AI",
+                "keywords": AI_PRODUCT_KEYWORDS,
+      },
 ]
